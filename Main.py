@@ -1,4 +1,3 @@
-import random
 
 from Utils import *
 from Models import EntailmentClassifier
@@ -15,7 +14,7 @@ if __name__ == "__main__":
     mtrain = read_file("Data/MLNI/multinli_1.0_train.txt", L2I)
     strain = read_file("Data/SNLI/snli_1.0_train.txt", L2I)
     dev = read_file("Data/SNLI/snli_1.0_dev.txt", L2I)
-    W2I, pre_lookup = read_glove("Glove.txt")
+    W2I, pre_lookup = read_glove("Glove_p.txt")
     m = dy.ParameterCollection()
 
     classifier = EntailmentClassifier(EMBEDDING, LSTM_DIMS, W2I, m, pre_lookup, MLP_DIMS, L2I, I2L)

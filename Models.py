@@ -15,7 +15,6 @@ class EntailmentClassifier(object):
         for i in range(1, len(mlp_dims)):
             self._params.append(model.add_parameters((mlp_dims[i - 1], mlp_dims[i])))
             self._params.append(model.add_parameters(mlp_dims[i]))
-        pass
 
     def __call__(self, premise, hypothesis):
         precode = self._ssbilstm(premise)
@@ -69,13 +68,15 @@ class ShortcutStackedBiLSTM(object):
     """
 
     def __call__(self, sequence):
-        vecs = [self._E[self._W2I[i]] if i in self._W2I else self._E[self._W2I["UUUNKKK"]]
+        vecs = [self._E[self._W2I[i]] if i in self._W2I else self._E[self._W2I["UNK"]]
                 for i in sequence]
         next_input = vecs
         for layer in self._stacks:
             output = layer(next_input)
-            next_input = dy.concatenate(next_input, output)
-        output = dy.transpose(output)
+            next_input = [dy.concatenate([next_input[i], output[i]]) for i in range(len(sequence))]
+        output = np.array([exp.npvalue() for exp in output]).T
+        output = dy.inputMatrix(output, output.shape)
+
         v = dy.maxpooling2d(output, [1, len(sequence)], [1, 1])
         # v = self._max_pool(vecs)
         return v
@@ -96,6 +97,6 @@ class BiLSTM(object):
         rnn_fwd = fwd.transduce(vecs)
         rnn_bwd = (bwd.transduce(vecs[::-1]))[::-1]
 
-        output = dy.vecInput([dy.concatenate([fwd_out, bwd_out]) for fwd_out, bwd_out in zip(rnn_fwd, rnn_bwd)])
+        output = [dy.concatenate([fwd_out, bwd_out]) for fwd_out, bwd_out in zip(rnn_fwd, rnn_bwd)]
 
         return output

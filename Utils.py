@@ -10,11 +10,16 @@ def read_file(file_name, L2I):
     return data
 
 def read_glove(file_name):
-    data = pd.read_csv(file_name, sep=' ', header=None).get_values()
-
-    key2word = np.array([row[0] for row in data])
-    W2I = {w: i for i, w in enumerate(key2word)}
-
-
-    vecs = [row[1:].astype(np.float32) for row in data]
-    return W2I, vecs
+    glove_file = open(file_name, 'r')
+    lines = glove_file.readlines()
+    vecs = list()
+    W2I = dict()
+    for line in lines:
+        line = line.strip('\n')
+        parsed_line = line.split(' ')
+        W2I[parsed_line[0]] = len(W2I)
+        vecs.append(np.array(parsed_line[1:]).astype(np.float32))
+    if "UNK" not in W2I:
+        W2I["UNK"] = len(W2I)
+        vecs.append(np.random.rand(300))
+    return W2I, np.array(vecs)

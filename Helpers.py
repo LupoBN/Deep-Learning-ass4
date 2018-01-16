@@ -7,10 +7,10 @@ def train(strain, mtrain, dev, num_of_iterations, trainer, model, save_file, bat
     dev_results = list()
     train_results = list()
     best_acc = 0.0
-
+    take_from_s_train = int(0.15 * len(strain))
     for epoch in range(num_of_iterations):
 
-        train = mtrain + random.sample(strain, 0.15 * len(strain))
+        train = mtrain + random.sample(strain, take_from_s_train)
         np.random.shuffle(train)
 
         mini_batches = [train[i:i + batch_size] for i in range(0, len(train), batch_size)]
