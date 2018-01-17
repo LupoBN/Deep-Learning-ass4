@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 
 def read_file(file_name, L2I):
@@ -16,10 +15,11 @@ def read_glove(file_name):
     W2I = dict()
     for line in lines:
         line = line.strip('\n')
-        parsed_line = line.split(' ')
+        parsed_line =  line.split(' ')
         W2I[parsed_line[0]] = len(W2I)
         vecs.append(np.array(parsed_line[1:]).astype(np.float32))
     if "UNK" not in W2I:
+        print "No UNK on GLOVE, therefore Adding unk as random vector"
         W2I["UNK"] = len(W2I)
         vecs.append(np.random.rand(300))
     return W2I, np.array(vecs)

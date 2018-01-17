@@ -3,37 +3,40 @@ import numpy as np
 
 
 class EntailmentClassifier(object):
-    def __init__(self, embedding, lstm_dims, W2I, model, pre_lookup, mlp_dims, I2L, L2I):
+    def __init__(self, embedding, lstm_dims, W2I, model, pre_lookup, mlp_dims, L2I, I2L):
         self._ssbilstm = ShortcutStackedBiLSTM(embedding, lstm_dims, W2I, model, pre_lookup)
         self._params = list()
         self._model = model
         self._I2L = I2L
         self._L2I = L2I
-        self._params.append(model.add_parameters((mlp_dims[0], 2 * lstm_dims[-1])))
+        self._params.append(model.add_parameters((mlp_dims[0], 8 * lstm_dims[-1])))
         self._params.append(model.add_parameters(mlp_dims[0]))
 
         for i in range(1, len(mlp_dims)):
-            self._params.append(model.add_parameters((mlp_dims[i - 1], mlp_dims[i])))
+            self._params.append(model.add_parameters((mlp_dims[i], mlp_dims[i - 1])))
             self._params.append(model.add_parameters(mlp_dims[i]))
 
-    def __call__(self, premise, hypothesis):
+    def __call__(self, premise, hypothesis, dropout=0.0):
         precode = self._ssbilstm(premise)
         hypcode = self._ssbilstm(hypothesis)
-        conc_pre_hyp = dy.concatenate(precode, hypothesis)
+        conc_pre_hyp = dy.concatenate([precode, hypcode])
         dist_pre_hyp = precode - hypcode
-        mult_pre_hyp = precode * hypcode
+        mult_pre_hyp = dy.cmult(precode, hypcode)
         x = dy.concatenate([conc_pre_hyp, dist_pre_hyp, mult_pre_hyp])
         expr = list()
         for exp in self._params:
             expr.append(dy.parameter(exp))
-        for i in range(0, len(exp) - 2, 2):
-            x = dy.dropout(dy.rectify((expr[i] * x) + expr[i]), 0.1)
-        output = dy.softmax((exp[i] * x) + expr[i + 1])
+        for i in range(0, len(expr) - 2, 2):
+            x = dy.tanh((expr[i] * x) + expr[i + 1])
+            if dropout != 0.0:
+                x = dy.dropout(x, dropout)
+
+        output = dy.softmax((expr[-2] * x) + expr[-1])
         return output
 
     def forward(self, premise, hypothesis, relation):
-        out = self(premise, hypothesis)
-        prediction = np.argmax(self._I2L[out.npvalue()])
+        out = self(premise, hypothesis, dropout=0.1)
+        prediction = self._I2L[np.argmax(out.npvalue())]
         loss = -dy.log(dy.pick(out, self._L2I[relation]))
         return prediction, loss
 
@@ -57,6 +60,7 @@ class ShortcutStackedBiLSTM(object):
         self._E = model.lookup_parameters_from_numpy(pre_lookup)
         self._W2I = W2I
         self._stacks.append(BiLSTM(embedding_size, lstm_dims[0], model))
+
         current_dim = embedding_size + lstm_dims[0] * 2
         for i in range(2, len(lstm_dims)):
             self._stacks.append(BiLSTM(current_dim, lstm_dims[i], model))
@@ -74,10 +78,11 @@ class ShortcutStackedBiLSTM(object):
         for layer in self._stacks:
             output = layer(next_input)
             next_input = [dy.concatenate([next_input[i], output[i]]) for i in range(len(sequence))]
-        output = np.array([exp.npvalue() for exp in output]).T
-        output = dy.inputMatrix(output, output.shape)
+        output = np.array([exp.npvalue() for exp in output])
+        output = dy.inputTensor(output)
 
-        v = dy.maxpooling2d(output, [1, len(sequence)], [1, 1])
+        v = dy.maxpooling2d(output, [len(sequence), 1], [1, 1])
+        v = dy.inputTensor(v.npvalue()[0])
         # v = self._max_pool(vecs)
         return v
 
