@@ -1,15 +1,19 @@
 import dynet as dy
 import numpy as np
-
+import sys
 
 class EntailmentClassifier(object):
     def __init__(self, embedding, lstm_dims, W2I, model, pre_lookup, mlp_dims, L2I, I2L):
+
         self._ssbilstm = ShortcutStackedBiLSTM(embedding, lstm_dims, W2I, model, pre_lookup)
         self._params = list()
         self._model = model
         self._I2L = I2L
         self._L2I = L2I
-        self._params.append(model.add_parameters((mlp_dims[0], 8 * lstm_dims[-1])))
+
+        last_dim = 2 * lstm_dims[-1]
+
+        self._params.append(model.add_parameters((mlp_dims[0], last_dim + last_dim + last_dim + last_dim)))
         self._params.append(model.add_parameters(mlp_dims[0]))
 
         for i in range(1, len(mlp_dims)):
@@ -20,14 +24,18 @@ class EntailmentClassifier(object):
         precode = self._ssbilstm(premise)
         hypcode = self._ssbilstm(hypothesis)
         conc_pre_hyp = dy.concatenate([precode, hypcode])
-        dist_pre_hyp = precode - hypcode
+        dist_pre_hyp = dy.abs(precode - hypcode)
         mult_pre_hyp = dy.cmult(precode, hypcode)
         x = dy.concatenate([conc_pre_hyp, dist_pre_hyp, mult_pre_hyp])
         expr = list()
         for exp in self._params:
             expr.append(dy.parameter(exp))
         for i in range(0, len(expr) - 2, 2):
-            x = dy.tanh((expr[i] * x) + expr[i + 1])
+            if '-relu' in sys.argv:
+                x = dy.rectify((expr[i] * x) + expr[i + 1])
+            else:
+                x = dy.tanh((expr[i] * x) + expr[i + 1])
+
             if dropout != 0.0:
                 x = dy.dropout(x, dropout)
 
@@ -35,7 +43,8 @@ class EntailmentClassifier(object):
         return output
 
     def forward(self, premise, hypothesis, relation):
-        out = self(premise, hypothesis, dropout=0.1)
+
+        out = self(premise.split(' '), hypothesis.split(' '), dropout=0.1)
         prediction = self._I2L[np.argmax(out.npvalue())]
         loss = -dy.log(dy.pick(out, self._L2I[relation]))
         return prediction, loss
@@ -62,7 +71,7 @@ class ShortcutStackedBiLSTM(object):
         self._stacks.append(BiLSTM(embedding_size, lstm_dims[0], model))
 
         current_dim = embedding_size + lstm_dims[0] * 2
-        for i in range(2, len(lstm_dims)):
+        for i in range(1, len(lstm_dims)):
             self._stacks.append(BiLSTM(current_dim, lstm_dims[i], model))
             current_dim += lstm_dims[i] * 2
 
@@ -72,18 +81,14 @@ class ShortcutStackedBiLSTM(object):
     """
 
     def __call__(self, sequence):
-        vecs = [self._E[self._W2I[i]] if i in self._W2I else self._E[self._W2I["UNK"]]
+        vecs = [dy.lookup(self._E, self._W2I[i]) if i in self._W2I else dy.lookup(self._E, self._W2I["UNK"])
                 for i in sequence]
         next_input = vecs
         for layer in self._stacks:
             output = layer(next_input)
             next_input = [dy.concatenate([next_input[i], output[i]]) for i in range(len(sequence))]
-        output = np.array([exp.npvalue() for exp in output])
-        output = dy.inputTensor(output)
-
-        v = dy.maxpooling2d(output, [len(sequence), 1], [1, 1])
-        v = dy.inputTensor(v.npvalue()[0])
-        # v = self._max_pool(vecs)
+        exp_output = dy.concatenate_cols(output)
+        v = dy.kmax_pooling(exp_output, 1, d=1)
         return v
 
 
