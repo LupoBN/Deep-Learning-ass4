@@ -7,8 +7,8 @@ import dynet as dy
 import sys
 
 EMBEDDING = 300
-LSTM_DIMS = [512, 512]
-MLP_DIMS = [1600, 3]
+LSTM_DIMS = [64, 128]
+MLP_DIMS = [256, 3]
 
 if __name__ == "__main__":
     results_file = open(sys.argv[1], 'w')

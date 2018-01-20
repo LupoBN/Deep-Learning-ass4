@@ -23,19 +23,20 @@ def train(strain, mtrain, dev, num_of_iterations, trainer, model, save_file, res
         counter = 0
 
         for mini_batch in mini_batches:
-            if counter % 2000 == 0:
+            if '-ntest' not in sys.argv:
+                if counter % 2000 == 0:
 
-                dev_acc, dev_loss = test(dev, model, batch_size=batch_size)
-                dev_results.append(dev_acc)
-                if dev_acc > best_acc:
-                    best_acc = dev_acc
-                    model.save_model(save_file)
-                print "Test accuracy:", dev_acc
-                print "Test loss:", dev_loss
-                results_file = open(results_file_name, "a")
-                results_file.write("Test Accuracy:\t" + str(dev_acc) + "\n")
-                results_file.write("Test Loss:\t" + str(dev_loss) + "\n")
-                results_file.close()
+                    dev_acc, dev_loss = test(dev, model, batch_size=batch_size)
+                    dev_results.append(dev_acc)
+                    if dev_acc > best_acc:
+                        best_acc = dev_acc
+                        model.save_model(save_file)
+                    print "Test accuracy:", dev_acc
+                    print "Test loss:", dev_loss
+                    results_file = open(results_file_name, "a")
+                    results_file.write("Test Accuracy:\t" + str(dev_acc) + "\n")
+                    results_file.write("Test Loss:\t" + str(dev_loss) + "\n")
+                    results_file.close()
             dy.renew_cg()
             losses = []
             time0 = time.time()
@@ -53,7 +54,8 @@ def train(strain, mtrain, dev, num_of_iterations, trainer, model, save_file, res
             batch_loss.backward()
             trainer.update()
             time1 = time.time()
-            #print time1 - time0
+            if '-time' in sys.argv:
+                print time1 - time0
         print "Itertation:", epoch + 1
         train_acc = correct / (correct + incorrect)
         train_loss = sum_of_losses / (correct + incorrect)
