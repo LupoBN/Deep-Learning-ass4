@@ -7,10 +7,18 @@ import dynet as dy
 import sys
 
 EMBEDDING = 300
-LSTM_DIMS = [64, 128]
-MLP_DIMS = [256, 3]
+LSTM_DIMS = []
+MLP_DIMS = []
 
 if __name__ == "__main__":
+    lstm_dim_str = sys.argv[3].split(',')
+    mlp_dim_str = sys.argv[4].split(',')
+    for dim in lstm_dim_str:
+        LSTM_DIMS.append(int(dim))
+    for dim in mlp_dim_str:
+        MLP_DIMS.append(int(dim))
+    MLP_DIMS.append(3)
+
     results_file = open(sys.argv[1], 'w')
     if '-m' in sys.argv:
         results_file.write("MLNI Dataset\n")

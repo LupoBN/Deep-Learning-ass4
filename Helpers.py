@@ -41,7 +41,7 @@ def train(strain, mtrain, dev, num_of_iterations, trainer, model, save_file, res
             losses = []
             time0 = time.time()
             for (premise, hypothesis), label in mini_batch:
-                prediction, loss = model.forward(premise, hypothesis, label)
+                prediction, loss = model.forward(premise, hypothesis, label, dropout=0.1)
                 losses.append(loss)
                 if prediction == label:
                     correct += 1.0

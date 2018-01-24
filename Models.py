@@ -42,9 +42,9 @@ class EntailmentClassifier(object):
         output = dy.softmax((expr[-2] * x) + expr[-1])
         return output
 
-    def forward(self, premise, hypothesis, relation):
+    def forward(self, premise, hypothesis, relation, dropout=0.0):
 
-        out = self(premise.split(' '), hypothesis.split(' '), dropout=0.1)
+        out = self(premise.split(' '), hypothesis.split(' '), dropout=dropout)
         prediction = self._I2L[np.argmax(out.npvalue())]
         loss = -dy.log(dy.pick(out, self._L2I[relation]))
         return prediction, loss
@@ -66,7 +66,8 @@ class ShortcutStackedBiLSTM(object):
     def __init__(self, embedding_size, lstm_dims, W2I, model, pre_lookup):
         self._model = model
         self._stacks = list()
-        self._E = model.lookup_parameters_from_numpy(pre_lookup)
+        self._E = model.add_lookup_parameters((len(W2I), embedding_size))
+        self._E.init_from_array(pre_lookup)
         self._W2I = W2I
         self._stacks.append(BiLSTM(embedding_size, lstm_dims[0], model))
 
@@ -75,20 +76,16 @@ class ShortcutStackedBiLSTM(object):
             self._stacks.append(BiLSTM(current_dim, lstm_dims[i], model))
             current_dim += lstm_dims[i] * 2
 
-    """
-    def _max_pool(self, vecs):
-        return skimage.measure.block_reduce(vecs, (1, vecs.shape[0]), np.max).T
-    """
-
     def __call__(self, sequence):
-        vecs = [dy.lookup(self._E, self._W2I[i]) if i in self._W2I else dy.lookup(self._E, self._W2I["UNK"])
+        next_input = [dy.lookup(self._E, self._W2I[i]) if i in self._W2I else dy.lookup(self._E, self._W2I["UNK"])
                 for i in sequence]
-        next_input = vecs
-        for layer in self._stacks:
+        for layer in self._stacks[0:-1]:
             output = layer(next_input)
             next_input = [dy.concatenate([next_input[i], output[i]]) for i in range(len(sequence))]
+        output = layer(next_input)
         exp_output = dy.concatenate_cols(output)
         v = dy.kmax_pooling(exp_output, 1, d=1)
+
         return v
 
 
