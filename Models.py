@@ -82,7 +82,8 @@ class ShortcutStackedBiLSTM(object):
         for layer in self._stacks[0:-1]:
             output = layer(next_input)
             next_input = [dy.concatenate([next_input[i], output[i]]) for i in range(len(sequence))]
-        output = layer(next_input)
+        output = self._stacks[-1](next_input)
+
         exp_output = dy.concatenate_cols(output)
         v = dy.kmax_pooling(exp_output, 1, d=1)
 

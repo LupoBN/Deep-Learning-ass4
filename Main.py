@@ -52,7 +52,6 @@ if __name__ == "__main__":
             word_counter.update(example[0][0].split(' '))
             word_counter.update(example[0][1].split(' '))
 
-
     dev = read_file("Data/SNLI/snli_1.0_dev.txt", L2I)
     for example in dev:
         word_counter.update(example[0][0].split(' '))
@@ -65,4 +64,4 @@ if __name__ == "__main__":
     trainer = dy.AdamTrainer(m)
 
     train_results, dev_results = train(strain, mtrain, dev, 50, trainer, classifier, sys.argv[2], sys.argv[1],
-                                       batch_size=32)
+                                       batch_size=40)
